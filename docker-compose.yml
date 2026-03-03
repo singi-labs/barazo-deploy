@@ -10,6 +10,12 @@
 #
 # Startup order: postgres -> valkey -> tap -> barazo-api -> barazo-web -> caddy
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # ---------------------------------------------------------------------------
   # PostgreSQL 16 with pgvector (full-text + optional semantic search)
@@ -17,6 +23,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -40,6 +47,7 @@ services:
   valkey:
     image: valkey/valkey:9-alpine
     restart: unless-stopped
+    logging: *default-logging
     command: >
       valkey-server
       --requirepass ${VALKEY_PASSWORD}
@@ -68,6 +76,7 @@ services:
     image: ghcr.io/bluesky-social/indigo/tap:latest
     platform: linux/amd64
     restart: unless-stopped
+    logging: *default-logging
     environment:
       TAP_RELAY_URL: ${RELAY_URL:-https://bsky.network}
       TAP_SIGNAL_COLLECTION: forum.barazo.topic.post
@@ -88,6 +97,7 @@ services:
   barazo-api:
     image: ghcr.io/barazo-forum/barazo-api:${BARAZO_API_VERSION:-latest}
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
@@ -137,6 +147,7 @@ services:
   barazo-web:
     image: ghcr.io/barazo-forum/barazo-web:${BARAZO_WEB_VERSION:-latest}
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NODE_ENV: production
       API_INTERNAL_URL: http://barazo-api:3000
@@ -162,6 +173,7 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *default-logging
     environment:
       COMMUNITY_DOMAIN: ${COMMUNITY_DOMAIN}
     ports:

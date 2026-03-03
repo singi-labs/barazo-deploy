@@ -221,6 +221,9 @@ jobs:
             echo "Starting containers..."
             docker compose ${{ env.COMPOSE_FILES }} up -d
 
+            echo "Pruning unused images..."
+            docker image prune -f
+
             echo "Deploy complete at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
       # ----------------------------------------------------------------------
