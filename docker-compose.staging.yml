@@ -21,9 +21,11 @@ services:
     environment:
       NODE_ENV: staging
       LOG_LEVEL: debug
-      # Relaxed rate limits for testing
-      RATE_LIMIT_WINDOW_MS: "60000"
-      RATE_LIMIT_MAX_REQUESTS: "1000"
+      # Relaxed rate limits for testing (must match env vars in barazo-api env.ts)
+      RATE_LIMIT_READ_ANON: "1000"
+      RATE_LIMIT_READ_AUTH: "1000"
+      RATE_LIMIT_WRITE: "100"
+      RATE_LIMIT_AUTH: "100"
 
   # Override Web for staging
   barazo-web:
