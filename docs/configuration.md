@@ -10,6 +10,7 @@ All Barazo environment variables with descriptions, defaults, and examples.
 | `COMMUNITY_DOMAIN` | Yes | -- | Domain name (e.g., `forum.example.com`). Used by Caddy for SSL. |
 | `COMMUNITY_DID` | No | -- | AT Protocol DID. Created automatically during first setup. |
 | `COMMUNITY_MODE` | No | `single` | `single` for one community, `global` for aggregator mode |
+| `HOSTING_MODE` | No | `selfhosted` | `selfhosted`, `saas` |
 
 ## Database (PostgreSQL)
 
