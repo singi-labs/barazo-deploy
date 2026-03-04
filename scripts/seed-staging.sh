@@ -10,17 +10,19 @@
 #
 # What it creates:
 #   - 5 categories (General, Feedback, Development, AT Protocol, Off-Topic)
-#   - 3 test users (admin, moderator, member) with known DIDs
+#   - 5 test users (admin, moderator, 3 members) with known DIDs
 #   - 10 sample topics across categories
-#   - 30 sample replies
-#   - Sample reactions
+#   - 18 flat replies across topics
+#   - 15-level deep reply thread (Raspberry Pi self-hosting topic)
 #
 # Prerequisites:
 #   - Staging services must be running
 #   - Database must have migrations applied (API does this on startup)
+#   - COMMUNITY_DID must be set in .env
 #
 # Environment:
-#   COMPOSE_CMD   Docker Compose command override
+#   COMPOSE_CMD    Docker Compose command override
+#   COMMUNITY_DID  AT Protocol community DID (required, loaded from .env)
 
 set -euo pipefail
 
@@ -47,7 +49,7 @@ for arg in "$@"; do
   esac
 done
 
-# Load .env for database credentials
+# Load .env for database credentials and COMMUNITY_DID
 if [ -f .env ]; then
   # shellcheck disable=SC2046
   export $(grep -v '^#' .env | grep -v '^\s*$' | xargs)
@@ -56,6 +58,13 @@ fi
 DB_NAME="${POSTGRES_DB:-barazo_staging}"
 DB_USER="${POSTGRES_USER:-barazo}"
 
+if [ -z "${COMMUNITY_DID:-}" ]; then
+  echo "Error: COMMUNITY_DID is not set. Add it to .env or export it." >&2
+  exit 1
+fi
+
+echo "Using COMMUNITY_DID: $COMMUNITY_DID"
+
 # Verify PostgreSQL is running
 if ! $COMPOSE_CMD exec -T postgres pg_isready -U "$DB_USER" &>/dev/null; then
   echo "Error: PostgreSQL is not running. Start services first:" >&2
@@ -63,20 +72,26 @@ if ! $COMPOSE_CMD exec -T postgres pg_isready -U "$DB_USER" &>/dev/null; then
   exit 1
 fi
 
+# Helper: run psql with COMMUNITY_DID available as a psql variable
+run_psql() {
+  $COMPOSE_CMD exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" \
+    -v community_did="'$COMMUNITY_DID'"
+}
+
 echo "Seeding staging database..."
 echo ""
 
 # --- Categories ---
 echo "Creating categories..."
-$COMPOSE_CMD exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" <<'SQL'
-INSERT INTO categories (slug, name, description, sort_order, created_at, updated_at)
+run_psql <<'SQL'
+INSERT INTO categories (id, slug, name, description, sort_order, community_did, maturity_rating, created_at, updated_at)
 VALUES
-  ('general',      'General',      'General discussion about anything',               1, NOW(), NOW()),
-  ('feedback',     'Feedback',     'Feature requests, bug reports, and suggestions',   2, NOW(), NOW()),
-  ('development',  'Development',  'Technical discussions about building with Barazo', 3, NOW(), NOW()),
-  ('atproto',      'AT Protocol',  'AT Protocol ecosystem, standards, and tooling',    4, NOW(), NOW()),
-  ('off-topic',    'Off-Topic',    'Casual conversations and community hangout',       5, NOW(), NOW())
-ON CONFLICT (slug) DO NOTHING;
+  ('cat-general',     'general',     'General',      'General discussion about anything',               1, :community_did, 'safe', NOW(), NOW()),
+  ('cat-feedback',    'feedback',    'Feedback',     'Feature requests, bug reports, and suggestions',   2, :community_did, 'safe', NOW(), NOW()),
+  ('cat-development', 'development', 'Development',  'Technical discussions about building with Barazo', 3, :community_did, 'safe', NOW(), NOW()),
+  ('cat-atproto',     'atproto',     'AT Protocol',  'AT Protocol ecosystem, standards, and tooling',    4, :community_did, 'safe', NOW(), NOW()),
+  ('cat-off-topic',   'off-topic',   'Off-Topic',    'Casual conversations and community hangout',       5, :community_did, 'safe', NOW(), NOW())
+ON CONFLICT DO NOTHING;
 SQL
 echo "  Categories created."
 
@@ -87,161 +102,373 @@ if [ "$MINIMAL" = true ]; then
 fi
 
 # --- Test Users ---
+# Users table has no community_did (global across communities)
 echo "Creating test users..."
-$COMPOSE_CMD exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" <<'SQL'
-INSERT INTO users (did, handle, display_name, role, created_at, updated_at)
+run_psql <<'SQL'
+INSERT INTO users (did, handle, display_name, role, first_seen_at, last_active_at)
 VALUES
   ('did:plc:staging-admin-001',     'staging-admin.bsky.social',     'Staging Admin',     'admin',     NOW(), NOW()),
   ('did:plc:staging-moderator-001', 'staging-mod.bsky.social',       'Staging Moderator', 'moderator', NOW(), NOW()),
-  ('did:plc:staging-member-001',    'staging-member.bsky.social',    'Staging Member',    'member',    NOW(), NOW()),
-  ('did:plc:staging-member-002',    'staging-member2.bsky.social',   'Test User Two',     'member',    NOW(), NOW()),
-  ('did:plc:staging-member-003',    'staging-member3.bsky.social',   'Test User Three',   'member',    NOW(), NOW())
+  ('did:plc:staging-member-001',    'staging-member.bsky.social',    'Staging Member',    'user',      NOW(), NOW()),
+  ('did:plc:staging-member-002',    'staging-member2.bsky.social',   'Test User Two',     'user',      NOW(), NOW()),
+  ('did:plc:staging-member-003',    'staging-member3.bsky.social',   'Test User Three',   'user',      NOW(), NOW())
 ON CONFLICT (did) DO NOTHING;
 SQL
 echo "  Test users created."
 
 # --- Topics ---
+# AT Protocol style: uri is the primary key, references author by DID, category by slug
 echo "Creating sample topics..."
-$COMPOSE_CMD exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" <<'SQL'
--- Get user and category IDs for reference
-WITH admin_user AS (SELECT id FROM users WHERE did = 'did:plc:staging-admin-001' LIMIT 1),
-     mod_user AS (SELECT id FROM users WHERE did = 'did:plc:staging-moderator-001' LIMIT 1),
-     member_user AS (SELECT id FROM users WHERE did = 'did:plc:staging-member-001' LIMIT 1),
-     general_cat AS (SELECT id FROM categories WHERE slug = 'general' LIMIT 1),
-     feedback_cat AS (SELECT id FROM categories WHERE slug = 'feedback' LIMIT 1),
-     dev_cat AS (SELECT id FROM categories WHERE slug = 'development' LIMIT 1),
-     atproto_cat AS (SELECT id FROM categories WHERE slug = 'atproto' LIMIT 1),
-     offtopic_cat AS (SELECT id FROM categories WHERE slug = 'off-topic' LIMIT 1)
-INSERT INTO topics (title, slug, body, author_id, category_id, created_at, updated_at)
+run_psql <<'SQL'
+INSERT INTO topics (uri, rkey, author_did, title, content, category, community_did, cid, reply_count, created_at, last_activity_at)
 VALUES
-  ('Welcome to Barazo Staging',
-   'welcome-to-barazo-staging',
+  ('at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed001',
+   '3seed001', 'did:plc:staging-admin-001',
+   'Welcome to Barazo Staging',
    'This is the staging instance of Barazo, used for testing and development. Feel free to create topics and test features.',
-   (SELECT id FROM admin_user), (SELECT id FROM general_cat), NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days'),
+   'general', :community_did, 'bafyseed-t01', 3,
+   NOW() - INTERVAL '7 days', NOW() - INTERVAL '6 days 18 hours'),
 
-  ('How to report bugs',
-   'how-to-report-bugs',
+  ('at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed002',
+   '3seed002', 'did:plc:staging-admin-001',
+   'How to report bugs',
    'Found a bug? Describe what you expected to happen, what actually happened, and steps to reproduce.',
-   (SELECT id FROM admin_user), (SELECT id FROM feedback_cat), NOW() - INTERVAL '6 days', NOW() - INTERVAL '6 days'),
+   'feedback', :community_did, 'bafyseed-t02', 3,
+   NOW() - INTERVAL '6 days', NOW() - INTERVAL '5 days 18 hours'),
 
-  ('Getting started with the Barazo API',
-   'getting-started-barazo-api',
+  ('at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed003',
+   '3seed003', 'did:plc:staging-moderator-001',
+   'Getting started with the Barazo API',
    'The Barazo API is a RESTful API built with Fastify. You can explore the API documentation at /docs.',
-   (SELECT id FROM mod_user), (SELECT id FROM dev_cat), NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days'),
+   'development', :community_did, 'bafyseed-t03', 3,
+   NOW() - INTERVAL '5 days', NOW() - INTERVAL '4 days 14 hours'),
 
-  ('AT Protocol identity and portability',
-   'atproto-identity-portability',
+  ('at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed004',
+   '3seed004', 'did:plc:staging-moderator-001',
+   'AT Protocol identity and portability',
    'One of the key features of building on AT Protocol is portable identity. Your DID stays with you across communities.',
-   (SELECT id FROM mod_user), (SELECT id FROM atproto_cat), NOW() - INTERVAL '4 days', NOW() - INTERVAL '4 days'),
+   'atproto', :community_did, 'bafyseed-t04', 3,
+   NOW() - INTERVAL '4 days', NOW() - INTERVAL '3 days 14 hours'),
 
-  ('Favorite open source projects?',
-   'favorite-open-source-projects',
+  ('at://did:plc:staging-member-001/forum.barazo.topic.post/3seed005',
+   '3seed005', 'did:plc:staging-member-001',
+   'Favorite open source projects?',
    'What open source projects are you excited about right now? Share your favorites!',
-   (SELECT id FROM member_user), (SELECT id FROM offtopic_cat), NOW() - INTERVAL '3 days', NOW() - INTERVAL '3 days'),
+   'off-topic', :community_did, 'bafyseed-t05', 3,
+   NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days 12 hours'),
 
-  ('Feature request: dark mode improvements',
-   'feature-request-dark-mode',
+  ('at://did:plc:staging-member-001/forum.barazo.topic.post/3seed006',
+   '3seed006', 'did:plc:staging-member-001',
+   'Feature request: dark mode improvements',
    'The dark mode is great but could use some contrast improvements in the sidebar and category labels.',
-   (SELECT id FROM member_user), (SELECT id FROM feedback_cat), NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days'),
+   'feedback', :community_did, 'bafyseed-t06', 3,
+   NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day 12 hours'),
 
-  ('Understanding the firehose and Tap',
-   'understanding-firehose-tap',
+  ('at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed007',
+   '3seed007', 'did:plc:staging-admin-001',
+   'Understanding the firehose and Tap',
    'Tap filters the AT Protocol firehose for forum.barazo.* records. Here is how it works and why it matters.',
-   (SELECT id FROM admin_user), (SELECT id FROM dev_cat), NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days'),
+   'development', :community_did, 'bafyseed-t07', 0,
+   NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days'),
 
-  ('Cross-community reputation design',
-   'cross-community-reputation',
+  ('at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed008',
+   '3seed008', 'did:plc:staging-moderator-001',
+   'Cross-community reputation design',
    'How should reputation work across multiple Barazo communities? Let us discuss the design considerations.',
-   (SELECT id FROM mod_user), (SELECT id FROM atproto_cat), NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day'),
+   'atproto', :community_did, 'bafyseed-t08', 0,
+   NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day'),
 
-  ('Self-hosting Barazo on a Raspberry Pi',
-   'self-hosting-raspberry-pi',
+  ('at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009',
+   '3seed009', 'did:plc:staging-member-001',
+   'Self-hosting Barazo on a Raspberry Pi',
    'Has anyone tried running Barazo on a Raspberry Pi? Curious about the performance on ARM hardware.',
-   (SELECT id FROM member_user), (SELECT id FROM general_cat), NOW() - INTERVAL '12 hours', NOW() - INTERVAL '12 hours'),
+   'general', :community_did, 'bafyseed-t09', 15,
+   NOW() - INTERVAL '12 hours', NOW() - INTERVAL '1 hour'),
 
-  ('Weekend project ideas',
-   'weekend-project-ideas',
+  ('at://did:plc:staging-member-001/forum.barazo.topic.post/3seed010',
+   '3seed010', 'did:plc:staging-member-001',
+   'Weekend project ideas',
    'Looking for weekend project ideas that integrate with AT Protocol. What are you building?',
-   (SELECT id FROM member_user), (SELECT id FROM offtopic_cat), NOW() - INTERVAL '6 hours', NOW() - INTERVAL '6 hours')
+   'off-topic', :community_did, 'bafyseed-t10', 0,
+   NOW() - INTERVAL '6 hours', NOW() - INTERVAL '6 hours')
 ON CONFLICT DO NOTHING;
 SQL
 echo "  Sample topics created."
 
-# --- Replies ---
+# --- Flat Replies (depth 1, across multiple topics) ---
 echo "Creating sample replies..."
-$COMPOSE_CMD exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" <<'SQL'
-WITH admin_user AS (SELECT id FROM users WHERE did = 'did:plc:staging-admin-001' LIMIT 1),
-     mod_user AS (SELECT id FROM users WHERE did = 'did:plc:staging-moderator-001' LIMIT 1),
-     member_user AS (SELECT id FROM users WHERE did = 'did:plc:staging-member-001' LIMIT 1),
-     member2_user AS (SELECT id FROM users WHERE did = 'did:plc:staging-member-002' LIMIT 1),
-     member3_user AS (SELECT id FROM users WHERE did = 'did:plc:staging-member-003' LIMIT 1),
-     welcome_topic AS (SELECT id FROM topics WHERE slug = 'welcome-to-barazo-staging' LIMIT 1),
-     bugs_topic AS (SELECT id FROM topics WHERE slug = 'how-to-report-bugs' LIMIT 1),
-     api_topic AS (SELECT id FROM topics WHERE slug = 'getting-started-barazo-api' LIMIT 1),
-     identity_topic AS (SELECT id FROM topics WHERE slug = 'atproto-identity-portability' LIMIT 1),
-     oss_topic AS (SELECT id FROM topics WHERE slug = 'favorite-open-source-projects' LIMIT 1),
-     dark_topic AS (SELECT id FROM topics WHERE slug = 'feature-request-dark-mode' LIMIT 1)
-INSERT INTO replies (body, author_id, topic_id, created_at, updated_at)
+run_psql <<'SQL'
+-- Welcome topic replies (flat, depth 1)
+INSERT INTO replies (uri, rkey, author_did, content, root_uri, root_cid, parent_uri, parent_cid, community_did, cid, depth, created_at)
 VALUES
-  -- Welcome topic replies
-  ('Great to see the staging environment up and running!',
-   (SELECT id FROM mod_user), (SELECT id FROM welcome_topic), NOW() - INTERVAL '6 days 23 hours', NOW() - INTERVAL '6 days 23 hours'),
-  ('Testing the reply functionality. Markdown **bold** and *italic* work well.',
-   (SELECT id FROM member_user), (SELECT id FROM welcome_topic), NOW() - INTERVAL '6 days 20 hours', NOW() - INTERVAL '6 days 20 hours'),
-  ('Confirmed everything looks good on mobile too.',
-   (SELECT id FROM member2_user), (SELECT id FROM welcome_topic), NOW() - INTERVAL '6 days 18 hours', NOW() - INTERVAL '6 days 18 hours'),
+  ('at://did:plc:staging-moderator-001/forum.barazo.reply.post/3seedr01',
+   '3seedr01', 'did:plc:staging-moderator-001',
+   'Great to see the staging environment up and running!',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed001', 'bafyseed-t01',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed001', 'bafyseed-t01',
+   :community_did, 'bafyseed-r01', 1, NOW() - INTERVAL '6 days 23 hours'),
+
+  ('at://did:plc:staging-member-001/forum.barazo.reply.post/3seedr02',
+   '3seedr02', 'did:plc:staging-member-001',
+   'Testing the reply functionality. Markdown **bold** and *italic* work well.',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed001', 'bafyseed-t01',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed001', 'bafyseed-t01',
+   :community_did, 'bafyseed-r02', 1, NOW() - INTERVAL '6 days 20 hours'),
+
+  ('at://did:plc:staging-member-002/forum.barazo.reply.post/3seedr03',
+   '3seedr03', 'did:plc:staging-member-002',
+   'Confirmed everything looks good on mobile too.',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed001', 'bafyseed-t01',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed001', 'bafyseed-t01',
+   :community_did, 'bafyseed-r03', 1, NOW() - INTERVAL '6 days 18 hours'),
 
   -- Bug report topic replies
-  ('I can help triage bugs as they come in.',
-   (SELECT id FROM mod_user), (SELECT id FROM bugs_topic), NOW() - INTERVAL '5 days 22 hours', NOW() - INTERVAL '5 days 22 hours'),
-  ('Is there a template for bug reports?',
-   (SELECT id FROM member_user), (SELECT id FROM bugs_topic), NOW() - INTERVAL '5 days 20 hours', NOW() - INTERVAL '5 days 20 hours'),
-  ('Not yet, but that is a good idea. Will add one.',
-   (SELECT id FROM admin_user), (SELECT id FROM bugs_topic), NOW() - INTERVAL '5 days 18 hours', NOW() - INTERVAL '5 days 18 hours'),
+  ('at://did:plc:staging-moderator-001/forum.barazo.reply.post/3seedr04',
+   '3seedr04', 'did:plc:staging-moderator-001',
+   'I can help triage bugs as they come in.',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed002', 'bafyseed-t02',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed002', 'bafyseed-t02',
+   :community_did, 'bafyseed-r04', 1, NOW() - INTERVAL '5 days 22 hours'),
+
+  ('at://did:plc:staging-member-001/forum.barazo.reply.post/3seedr05',
+   '3seedr05', 'did:plc:staging-member-001',
+   'Is there a template for bug reports?',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed002', 'bafyseed-t02',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed002', 'bafyseed-t02',
+   :community_did, 'bafyseed-r05', 1, NOW() - INTERVAL '5 days 20 hours'),
+
+  ('at://did:plc:staging-admin-001/forum.barazo.reply.post/3seedr06',
+   '3seedr06', 'did:plc:staging-admin-001',
+   'Not yet, but that is a good idea. Will add one.',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed002', 'bafyseed-t02',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed002', 'bafyseed-t02',
+   :community_did, 'bafyseed-r06', 1, NOW() - INTERVAL '5 days 18 hours'),
 
   -- API topic replies
-  ('The Fastify integration is really clean. Love the Zod validation.',
-   (SELECT id FROM member_user), (SELECT id FROM api_topic), NOW() - INTERVAL '4 days 20 hours', NOW() - INTERVAL '4 days 20 hours'),
-  ('How does rate limiting work on the API?',
-   (SELECT id FROM member2_user), (SELECT id FROM api_topic), NOW() - INTERVAL '4 days 16 hours', NOW() - INTERVAL '4 days 16 hours'),
-  ('Rate limiting uses a sliding window stored in Valkey. Configurable per endpoint.',
-   (SELECT id FROM admin_user), (SELECT id FROM api_topic), NOW() - INTERVAL '4 days 14 hours', NOW() - INTERVAL '4 days 14 hours'),
+  ('at://did:plc:staging-member-001/forum.barazo.reply.post/3seedr07',
+   '3seedr07', 'did:plc:staging-member-001',
+   'The Fastify integration is really clean. Love the Zod validation.',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed003', 'bafyseed-t03',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed003', 'bafyseed-t03',
+   :community_did, 'bafyseed-r07', 1, NOW() - INTERVAL '4 days 20 hours'),
+
+  ('at://did:plc:staging-member-002/forum.barazo.reply.post/3seedr08',
+   '3seedr08', 'did:plc:staging-member-002',
+   'How does rate limiting work on the API?',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed003', 'bafyseed-t03',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed003', 'bafyseed-t03',
+   :community_did, 'bafyseed-r08', 1, NOW() - INTERVAL '4 days 16 hours'),
+
+  ('at://did:plc:staging-admin-001/forum.barazo.reply.post/3seedr09',
+   '3seedr09', 'did:plc:staging-admin-001',
+   'Rate limiting uses a sliding window stored in Valkey. Configurable per endpoint.',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed003', 'bafyseed-t03',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed003', 'bafyseed-t03',
+   :community_did, 'bafyseed-r09', 1, NOW() - INTERVAL '4 days 14 hours'),
 
   -- Identity topic replies
-  ('This is the killer feature of AT Protocol-based forums.',
-   (SELECT id FROM member_user), (SELECT id FROM identity_topic), NOW() - INTERVAL '3 days 20 hours', NOW() - INTERVAL '3 days 20 hours'),
-  ('Can I use my existing Bluesky handle to sign in?',
-   (SELECT id FROM member3_user), (SELECT id FROM identity_topic), NOW() - INTERVAL '3 days 16 hours', NOW() - INTERVAL '3 days 16 hours'),
-  ('Yes! Any AT Protocol account works via OAuth. Bluesky, Blacksky, self-hosted PDS, all supported.',
-   (SELECT id FROM mod_user), (SELECT id FROM identity_topic), NOW() - INTERVAL '3 days 14 hours', NOW() - INTERVAL '3 days 14 hours'),
+  ('at://did:plc:staging-member-001/forum.barazo.reply.post/3seedr10',
+   '3seedr10', 'did:plc:staging-member-001',
+   'This is the killer feature of AT Protocol-based forums.',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed004', 'bafyseed-t04',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed004', 'bafyseed-t04',
+   :community_did, 'bafyseed-r10', 1, NOW() - INTERVAL '3 days 20 hours'),
+
+  ('at://did:plc:staging-member-003/forum.barazo.reply.post/3seedr11',
+   '3seedr11', 'did:plc:staging-member-003',
+   'Can I use my existing Bluesky handle to sign in?',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed004', 'bafyseed-t04',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed004', 'bafyseed-t04',
+   :community_did, 'bafyseed-r11', 1, NOW() - INTERVAL '3 days 16 hours'),
+
+  ('at://did:plc:staging-moderator-001/forum.barazo.reply.post/3seedr12',
+   '3seedr12', 'did:plc:staging-moderator-001',
+   'Yes! Any AT Protocol account works via OAuth. Bluesky, Blacksky, self-hosted PDS, all supported.',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed004', 'bafyseed-t04',
+   'at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed004', 'bafyseed-t04',
+   :community_did, 'bafyseed-r12', 1, NOW() - INTERVAL '3 days 14 hours'),
 
   -- OSS topic replies
-  ('Valkey has been great as a Redis replacement.',
-   (SELECT id FROM mod_user), (SELECT id FROM oss_topic), NOW() - INTERVAL '2 days 20 hours', NOW() - INTERVAL '2 days 20 hours'),
-  ('I have been enjoying Caddy for reverse proxy. So much simpler than nginx.',
-   (SELECT id FROM member2_user), (SELECT id FROM oss_topic), NOW() - INTERVAL '2 days 16 hours', NOW() - INTERVAL '2 days 16 hours'),
-  ('Drizzle ORM is another good one. TypeScript-first database queries.',
-   (SELECT id FROM admin_user), (SELECT id FROM oss_topic), NOW() - INTERVAL '2 days 12 hours', NOW() - INTERVAL '2 days 12 hours'),
+  ('at://did:plc:staging-moderator-001/forum.barazo.reply.post/3seedr13',
+   '3seedr13', 'did:plc:staging-moderator-001',
+   'Valkey has been great as a Redis replacement.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed005', 'bafyseed-t05',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed005', 'bafyseed-t05',
+   :community_did, 'bafyseed-r13', 1, NOW() - INTERVAL '2 days 20 hours'),
+
+  ('at://did:plc:staging-member-002/forum.barazo.reply.post/3seedr14',
+   '3seedr14', 'did:plc:staging-member-002',
+   'I have been enjoying Caddy for reverse proxy. So much simpler than nginx.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed005', 'bafyseed-t05',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed005', 'bafyseed-t05',
+   :community_did, 'bafyseed-r14', 1, NOW() - INTERVAL '2 days 16 hours'),
+
+  ('at://did:plc:staging-admin-001/forum.barazo.reply.post/3seedr15',
+   '3seedr15', 'did:plc:staging-admin-001',
+   'Drizzle ORM is another good one. TypeScript-first database queries.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed005', 'bafyseed-t05',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed005', 'bafyseed-t05',
+   :community_did, 'bafyseed-r15', 1, NOW() - INTERVAL '2 days 12 hours'),
 
   -- Dark mode topic replies
-  ('Agreed on the sidebar contrast. The category pills are hard to read in dark mode.',
-   (SELECT id FROM mod_user), (SELECT id FROM dark_topic), NOW() - INTERVAL '1 day 20 hours', NOW() - INTERVAL '1 day 20 hours'),
-  ('We use Radix Colors which should handle this well. Will investigate.',
-   (SELECT id FROM admin_user), (SELECT id FROM dark_topic), NOW() - INTERVAL '1 day 16 hours', NOW() - INTERVAL '1 day 16 hours'),
-  ('Maybe the Flexoki accent hues need adjustment for the dark palette.',
-   (SELECT id FROM member3_user), (SELECT id FROM dark_topic), NOW() - INTERVAL '1 day 12 hours', NOW() - INTERVAL '1 day 12 hours')
+  ('at://did:plc:staging-moderator-001/forum.barazo.reply.post/3seedr16',
+   '3seedr16', 'did:plc:staging-moderator-001',
+   'Agreed on the sidebar contrast. The category pills are hard to read in dark mode.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed006', 'bafyseed-t06',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed006', 'bafyseed-t06',
+   :community_did, 'bafyseed-r16', 1, NOW() - INTERVAL '1 day 20 hours'),
+
+  ('at://did:plc:staging-admin-001/forum.barazo.reply.post/3seedr17',
+   '3seedr17', 'did:plc:staging-admin-001',
+   'We use Radix Colors which should handle this well. Will investigate.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed006', 'bafyseed-t06',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed006', 'bafyseed-t06',
+   :community_did, 'bafyseed-r17', 1, NOW() - INTERVAL '1 day 16 hours'),
+
+  ('at://did:plc:staging-member-003/forum.barazo.reply.post/3seedr18',
+   '3seedr18', 'did:plc:staging-member-003',
+   'Maybe the Flexoki accent hues need adjustment for the dark palette.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed006', 'bafyseed-t06',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed006', 'bafyseed-t06',
+   :community_did, 'bafyseed-r18', 1, NOW() - INTERVAL '1 day 12 hours')
 ON CONFLICT DO NOTHING;
 SQL
-echo "  Sample replies created."
+echo "  Flat replies created."
 
-# --- Update topic reply counts ---
-echo "Updating topic reply counts..."
-$COMPOSE_CMD exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" <<'SQL'
-UPDATE topics SET reply_count = (
-  SELECT COUNT(*) FROM replies WHERE replies.topic_id = topics.id
-);
+# --- Deep Thread (15 levels) on the Raspberry Pi topic ---
+# A single chain of replies where each is a child of the previous one.
+# Cycles through all 5 test users for realistic variety.
+echo "Creating deep reply thread (15 levels)..."
+run_psql <<'SQL'
+-- Raspberry Pi self-hosting topic: deep threaded conversation
+-- Topic URI: at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009
+-- Each reply is a child of the previous, forming a single chain depth 1-15.
+
+-- Users cycle: admin(001), mod(001), member(001), member(002), member(003), admin, mod, ...
+INSERT INTO replies (uri, rkey, author_did, content, root_uri, root_cid, parent_uri, parent_cid, community_did, cid, depth, created_at)
+VALUES
+  -- Depth 1: member-002 replies to topic
+  ('at://did:plc:staging-member-002/forum.barazo.reply.post/3seeddeep01',
+   '3seeddeep01', 'did:plc:staging-member-002',
+   'I actually have it running on a Pi 4 with 8GB RAM. Works surprisingly well.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   :community_did, 'bafyseed-d01', 1, NOW() - INTERVAL '11 hours'),
+
+  -- Depth 2: member-003 replies to depth 1
+  ('at://did:plc:staging-member-003/forum.barazo.reply.post/3seeddeep02',
+   '3seeddeep02', 'did:plc:staging-member-003',
+   'What about the database? PostgreSQL on a Pi seems heavy.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-member-002/forum.barazo.reply.post/3seeddeep01', 'bafyseed-d01',
+   :community_did, 'bafyseed-d02', 2, NOW() - INTERVAL '10 hours'),
+
+  -- Depth 3: admin replies to depth 2
+  ('at://did:plc:staging-admin-001/forum.barazo.reply.post/3seeddeep03',
+   '3seeddeep03', 'did:plc:staging-admin-001',
+   'SQLite would be lighter but you lose concurrent writes. PostgreSQL is fine with proper tuning.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-member-003/forum.barazo.reply.post/3seeddeep02', 'bafyseed-d02',
+   :community_did, 'bafyseed-d03', 3, NOW() - INTERVAL '9 hours'),
+
+  -- Depth 4: member-002 replies to depth 3
+  ('at://did:plc:staging-member-002/forum.barazo.reply.post/3seeddeep04',
+   '3seeddeep04', 'did:plc:staging-member-002',
+   'What pg settings did you change? I keep running out of shared memory.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-admin-001/forum.barazo.reply.post/3seeddeep03', 'bafyseed-d03',
+   :community_did, 'bafyseed-d04', 4, NOW() - INTERVAL '8 hours 30 minutes'),
+
+  -- Depth 5: mod replies to depth 4
+  ('at://did:plc:staging-moderator-001/forum.barazo.reply.post/3seeddeep05',
+   '3seeddeep05', 'did:plc:staging-moderator-001',
+   'Set shared_buffers to 256MB and work_mem to 16MB. Also reduce max_connections to 20.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-member-002/forum.barazo.reply.post/3seeddeep04', 'bafyseed-d04',
+   :community_did, 'bafyseed-d05', 5, NOW() - INTERVAL '8 hours'),
+
+  -- Depth 6: member-002 replies to depth 5
+  ('at://did:plc:staging-member-002/forum.barazo.reply.post/3seeddeep06',
+   '3seeddeep06', 'did:plc:staging-member-002',
+   'That helped a lot, thanks! But now the firehose consumer is lagging behind.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-moderator-001/forum.barazo.reply.post/3seeddeep05', 'bafyseed-d05',
+   :community_did, 'bafyseed-d06', 6, NOW() - INTERVAL '7 hours'),
+
+  -- Depth 7: admin replies to depth 6
+  ('at://did:plc:staging-admin-001/forum.barazo.reply.post/3seeddeep07',
+   '3seeddeep07', 'did:plc:staging-admin-001',
+   'The firehose needs dedicated resources. Consider running it as a separate service.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-member-002/forum.barazo.reply.post/3seeddeep06', 'bafyseed-d06',
+   :community_did, 'bafyseed-d07', 7, NOW() - INTERVAL '6 hours 30 minutes'),
+
+  -- Depth 8: member-003 replies to depth 7
+  ('at://did:plc:staging-member-003/forum.barazo.reply.post/3seeddeep08',
+   '3seeddeep08', 'did:plc:staging-member-003',
+   'Separate service means another container though. The Pi is already running 4.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-admin-001/forum.barazo.reply.post/3seeddeep07', 'bafyseed-d07',
+   :community_did, 'bafyseed-d08', 8, NOW() - INTERVAL '6 hours'),
+
+  -- Depth 9: mod replies to depth 8
+  ('at://did:plc:staging-moderator-001/forum.barazo.reply.post/3seeddeep09',
+   '3seeddeep09', 'did:plc:staging-moderator-001',
+   'You could use a lightweight process manager instead of Docker for some services.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-member-003/forum.barazo.reply.post/3seeddeep08', 'bafyseed-d08',
+   :community_did, 'bafyseed-d09', 9, NOW() - INTERVAL '5 hours'),
+
+  -- Depth 10: member-001 (topic author) replies to depth 9
+  ('at://did:plc:staging-member-001/forum.barazo.reply.post/3seeddeep10',
+   '3seeddeep10', 'did:plc:staging-member-001',
+   'PM2 or systemd? I tried PM2 but it added 100MB of memory overhead.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-moderator-001/forum.barazo.reply.post/3seeddeep09', 'bafyseed-d09',
+   :community_did, 'bafyseed-d10', 10, NOW() - INTERVAL '4 hours 30 minutes'),
+
+  -- Depth 11: admin replies to depth 10
+  ('at://did:plc:staging-admin-001/forum.barazo.reply.post/3seeddeep11',
+   '3seeddeep11', 'did:plc:staging-admin-001',
+   'systemd is the way to go. Zero overhead and it handles restarts natively.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-member-001/forum.barazo.reply.post/3seeddeep10', 'bafyseed-d10',
+   :community_did, 'bafyseed-d11', 11, NOW() - INTERVAL '4 hours'),
+
+  -- Depth 12: member-002 replies to depth 11
+  ('at://did:plc:staging-member-002/forum.barazo.reply.post/3seeddeep12',
+   '3seeddeep12', 'did:plc:staging-member-002',
+   'Good call. One more question -- how do you handle SSL termination?',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-admin-001/forum.barazo.reply.post/3seeddeep11', 'bafyseed-d11',
+   :community_did, 'bafyseed-d12', 12, NOW() - INTERVAL '3 hours'),
+
+  -- Depth 13: mod replies to depth 12
+  ('at://did:plc:staging-moderator-001/forum.barazo.reply.post/3seeddeep13',
+   '3seeddeep13', 'did:plc:staging-moderator-001',
+   'Caddy is perfect for this. Auto-HTTPS with minimal config and low resource usage.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-member-002/forum.barazo.reply.post/3seeddeep12', 'bafyseed-d12',
+   :community_did, 'bafyseed-d13', 13, NOW() - INTERVAL '2 hours 30 minutes'),
+
+  -- Depth 14: member-003 replies to depth 13
+  ('at://did:plc:staging-member-003/forum.barazo.reply.post/3seeddeep14',
+   '3seeddeep14', 'did:plc:staging-member-003',
+   'Has anyone benchmarked Caddy vs nginx on ARM? Curious about the TLS handshake overhead.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-moderator-001/forum.barazo.reply.post/3seeddeep13', 'bafyseed-d13',
+   :community_did, 'bafyseed-d14', 14, NOW() - INTERVAL '2 hours'),
+
+  -- Depth 15: member-001 (topic author) wraps it up
+  ('at://did:plc:staging-member-001/forum.barazo.reply.post/3seeddeep15',
+   '3seeddeep15', 'did:plc:staging-member-001',
+   'This whole thread is gold. Someone should turn this into a self-hosting guide.',
+   'at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009', 'bafyseed-t09',
+   'at://did:plc:staging-member-003/forum.barazo.reply.post/3seeddeep14', 'bafyseed-d14',
+   :community_did, 'bafyseed-d15', 15, NOW() - INTERVAL '1 hour')
+ON CONFLICT DO NOTHING;
 SQL
-echo "  Reply counts updated."
+echo "  Deep thread created (15 levels)."
 
 echo ""
 echo "Staging seed complete."
@@ -254,4 +481,6 @@ echo "  Member 2:  did:plc:staging-member-002    (staging-member2.bsky.social)"
 echo "  Member 3:  did:plc:staging-member-003    (staging-member3.bsky.social)"
 echo ""
 echo "Categories: general, feedback, development, atproto, off-topic"
-echo "Topics: 10 | Replies: 18"
+echo "Topics: 10 | Flat replies: 18 | Deep thread: 15 replies (depth 1-15)"
+echo ""
+echo "Deep thread topic: 'Self-hosting Barazo on a Raspberry Pi'"
