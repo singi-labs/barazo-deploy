@@ -16,7 +16,7 @@ Push to main (api or web)
   -> repository_dispatch event -> barazo-deploy
        -> Checkout all repos (deploy, lexicons, api, web)
        -> Build Docker images (amd64 only)
-       -> Push to ghcr.io/barazo-forum/*
+       -> Push to ghcr.io/singi-labs/*
        -> SSH to staging VPS:
             1. Save current image digests (for rollback)
             2. Check .env.example for new required vars

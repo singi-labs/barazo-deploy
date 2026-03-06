@@ -34,7 +34,7 @@ docker compose version
 ## 2. Clone the Repository
 
 ```bash
-git clone https://github.com/barazo-forum/barazo-deploy.git
+git clone https://github.com/singi-labs/barazo-deploy.git
 cd barazo-deploy
 ```
 
@@ -127,7 +127,7 @@ The staging environment runs at `staging.barazo.forum` and is used for integrati
 
 ```bash
 # Clone the repo on your staging VPS
-git clone https://github.com/barazo-forum/barazo-deploy.git
+git clone https://github.com/singi-labs/barazo-deploy.git
 cd barazo-deploy
 
 # Copy the staging template and fill in secrets

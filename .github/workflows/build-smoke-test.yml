@@ -48,8 +48,8 @@ jobs:
       - name: Check container image availability
         id: check-images
         run: |
-          API_IMAGE="ghcr.io/barazo-forum/barazo-api:${BARAZO_API_VERSION}"
-          WEB_IMAGE="ghcr.io/barazo-forum/barazo-web:${BARAZO_WEB_VERSION}"
+          API_IMAGE="ghcr.io/singi-labs/barazo-api:${BARAZO_API_VERSION}"
+          WEB_IMAGE="ghcr.io/singi-labs/barazo-web:${BARAZO_WEB_VERSION}"
 
           MISSING=false
           for IMAGE in "$API_IMAGE" "$WEB_IMAGE"; do

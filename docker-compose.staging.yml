@@ -17,7 +17,7 @@
 services:
   # Override API for staging
   barazo-api:
-    image: ghcr.io/barazo-forum/barazo-api:edge
+    image: ghcr.io/singi-labs/barazo-api:edge
     environment:
       NODE_ENV: staging
       LOG_LEVEL: debug
@@ -29,7 +29,7 @@ services:
 
   # Override Web for staging
   barazo-web:
-    image: ghcr.io/barazo-forum/barazo-web:edge
+    image: ghcr.io/singi-labs/barazo-web:edge
 
   # Staging postgres -- no resource overrides, keep defaults
   # (staging uses smallest Hetzner VPS)

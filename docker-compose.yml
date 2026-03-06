@@ -95,7 +95,7 @@ services:
   # Barazo API (AppView backend -- Fastify, REST API, firehose indexing)
   # ---------------------------------------------------------------------------
   barazo-api:
-    image: ghcr.io/barazo-forum/barazo-api:${BARAZO_API_VERSION:-latest}
+    image: ghcr.io/singi-labs/barazo-api:${BARAZO_API_VERSION:-latest}
     restart: unless-stopped
     logging: *default-logging
     environment:
@@ -146,7 +146,7 @@ services:
   # Barazo Web (Next.js frontend)
   # ---------------------------------------------------------------------------
   barazo-web:
-    image: ghcr.io/barazo-forum/barazo-web:${BARAZO_WEB_VERSION:-latest}
+    image: ghcr.io/singi-labs/barazo-web:${BARAZO_WEB_VERSION:-latest}
     restart: unless-stopped
     logging: *default-logging
     environment:

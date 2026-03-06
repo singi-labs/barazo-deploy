@@ -58,7 +58,7 @@ This checklist covers the first production deployment of `barazo.forum`. For sel
 
 - [ ] Clone deploy repo:
   ```bash
-  git clone https://github.com/barazo-forum/barazo-deploy.git
+  git clone https://github.com/singi-labs/barazo-deploy.git
   cd barazo-deploy
   ```
 - [ ] Create `.env` from template:
@@ -100,9 +100,9 @@ This checklist covers the first production deployment of `barazo.forum`. For sel
 - [ ] Pin Docker image versions in `docker-compose.yml`:
   ```yaml
   barazo-api:
-    image: ghcr.io/barazo-forum/barazo-api:X.Y.Z
+    image: ghcr.io/singi-labs/barazo-api:X.Y.Z
   barazo-web:
-    image: ghcr.io/barazo-forum/barazo-web:X.Y.Z
+    image: ghcr.io/singi-labs/barazo-web:X.Y.Z
   ```
 - [ ] Verify no `CHANGE_ME` values remain:
   ```bash

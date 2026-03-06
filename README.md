@@ -1,9 +1,9 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/barazo-forum/.github/main/assets/logo-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/barazo-forum/.github/main/assets/logo-light.svg">
-  <img alt="Barazo Logo" src="https://raw.githubusercontent.com/barazo-forum/.github/main/assets/logo-dark.svg" width="120">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/singi-labs/.github/main/assets/logo-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/singi-labs/.github/main/assets/logo-light.svg">
+  <img alt="Barazo Logo" src="https://raw.githubusercontent.com/singi-labs/.github/main/assets/logo-dark.svg" width="120">
 </picture>
 
 # Barazo Deploy
@@ -12,7 +12,7 @@
 
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Validate](https://github.com/barazo-forum/barazo-deploy/actions/workflows/validate-compose.yml/badge.svg)](https://github.com/barazo-forum/barazo-deploy/actions/workflows/validate-compose.yml)
+[![Validate](https://github.com/singi-labs/barazo-deploy/actions/workflows/validate-compose.yml/badge.svg)](https://github.com/singi-labs/barazo-deploy/actions/workflows/validate-compose.yml)
 
 </div>
 
@@ -20,7 +20,7 @@
 
 ## Overview
 
-Everything you need to self-host a [Barazo](https://github.com/barazo-forum) forum. Includes Docker Compose templates for development, production (single community), and global aggregator deployments. Automatic SSL via Caddy, backup/restore scripts, and network segmentation out of the box.
+Everything you need to self-host a [Barazo](https://github.com/singi-labs) forum. Includes Docker Compose templates for development, production (single community), and global aggregator deployments. Automatic SSL via Caddy, backup/restore scripts, and network segmentation out of the box.
 
 ---
 
@@ -41,8 +41,8 @@ Everything you need to self-host a [Barazo](https://github.com/barazo-forum) for
 | PostgreSQL 16 | `pgvector/pgvector:pg16` | Primary database with pgvector for full-text and optional semantic search |
 | Valkey 8 | `valkey/valkey:8-alpine` | Redis-compatible cache for sessions, rate limiting, and queues |
 | Tap | `ghcr.io/bluesky-social/indigo/tap:latest` | AT Protocol firehose consumer, filters `forum.barazo.*` records |
-| Barazo API | `ghcr.io/barazo-forum/barazo-api` | AppView backend (Fastify, REST API, firehose indexing) |
-| Barazo Web | `ghcr.io/barazo-forum/barazo-web` | Next.js frontend |
+| Barazo API | `ghcr.io/singi-labs/barazo-api` | AppView backend (Fastify, REST API, firehose indexing) |
+| Barazo Web | `ghcr.io/singi-labs/barazo-web` | Next.js frontend |
 | Caddy | `caddy:2-alpine` | Reverse proxy with automatic SSL via Let's Encrypt, HTTP/3 support |
 
 Production uses two-network segmentation: PostgreSQL and Valkey sit on the `backend` network only and are unreachable from Caddy or the frontend. Only ports 80 and 443 are exposed externally.
@@ -51,7 +51,7 @@ Production uses two-network segmentation: PostgreSQL and Valkey sit on the `back
 
 ## Image Tags
 
-Barazo API and Web images are published to [GitHub Container Registry](https://github.com/orgs/barazo-forum/packages) (`ghcr.io/barazo-forum/*`).
+Barazo API and Web images are published to [GitHub Container Registry](https://github.com/orgs/singi-labs/packages) (`ghcr.io/singi-labs/*`).
 
 | Tag | Meaning | When to use |
 |-----|---------|-------------|
@@ -150,7 +150,7 @@ All variables are documented in [`.env.example`](.env.example). Key groups:
 ## Quick Start
 
 ```bash
-git clone https://github.com/barazo-forum/barazo-deploy.git
+git clone https://github.com/singi-labs/barazo-deploy.git
 cd barazo-deploy
 
 # Configure
@@ -183,18 +183,18 @@ Detailed guides are in the [`docs/`](docs/) directory:
 
 | Repository | Description | License |
 |------------|-------------|---------|
-| [barazo-api](https://github.com/barazo-forum/barazo-api) | AppView backend (Fastify, firehose, REST API) | AGPL-3.0 |
-| [barazo-web](https://github.com/barazo-forum/barazo-web) | Forum frontend (Next.js, Tailwind) | MIT |
-| [barazo-lexicons](https://github.com/barazo-forum/barazo-lexicons) | AT Protocol lexicon schemas + generated types | MIT |
-| [barazo-website](https://github.com/barazo-forum/barazo-website) | Marketing + documentation site | MIT |
+| [barazo-api](https://github.com/singi-labs/barazo-api) | AppView backend (Fastify, firehose, REST API) | AGPL-3.0 |
+| [barazo-web](https://github.com/singi-labs/barazo-web) | Forum frontend (Next.js, Tailwind) | MIT |
+| [barazo-lexicons](https://github.com/singi-labs/barazo-lexicons) | AT Protocol lexicon schemas + generated types | MIT |
+| [barazo-website](https://github.com/singi-labs/barazo-website) | Marketing + documentation site | MIT |
 
 ---
 
 ## Community
 
 - **Website:** [barazo.forum](https://barazo.forum)
-- **Discussions:** [GitHub Discussions](https://github.com/orgs/barazo-forum/discussions)
-- **Issues:** [Report bugs](https://github.com/barazo-forum/barazo-deploy/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/orgs/singi-labs/discussions)
+- **Issues:** [Report bugs](https://github.com/singi-labs/barazo-deploy/issues)
 
 ---
 

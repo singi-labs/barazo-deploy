@@ -72,7 +72,7 @@ jobs:
       - name: Checkout barazo-workspace
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: barazo-forum/barazo-workspace
+          repository: singi-labs/barazo-workspace
           path: _workspace
 
       # Copy workspace root files (lockfile, catalogs) over deploy repo root.
@@ -88,20 +88,20 @@ jobs:
       - name: Checkout barazo-lexicons
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: barazo-forum/barazo-lexicons
+          repository: singi-labs/barazo-lexicons
           path: barazo-lexicons
 
       - name: Checkout barazo-api
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: barazo-forum/barazo-api
+          repository: singi-labs/barazo-api
           ref: ${{ steps.refs.outputs.api_ref }}
           path: barazo-api
 
       - name: Checkout barazo-web
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: barazo-forum/barazo-web
+          repository: singi-labs/barazo-web
           ref: ${{ steps.refs.outputs.web_ref }}
           path: barazo-web
 
@@ -128,8 +128,8 @@ jobs:
           file: barazo-api/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/barazo-forum/barazo-api:edge
-            ${{ env.REGISTRY }}/barazo-forum/barazo-api:staging-${{ github.run_number }}
+            ${{ env.REGISTRY }}/singi-labs/barazo-api:edge
+            ${{ env.REGISTRY }}/singi-labs/barazo-api:staging-${{ github.run_number }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
           platforms: linux/amd64
@@ -141,8 +141,8 @@ jobs:
           file: barazo-web/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/barazo-forum/barazo-web:edge
-            ${{ env.REGISTRY }}/barazo-forum/barazo-web:staging-${{ github.run_number }}
+            ${{ env.REGISTRY }}/singi-labs/barazo-web:edge
+            ${{ env.REGISTRY }}/singi-labs/barazo-web:staging-${{ github.run_number }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
           platforms: linux/amd64
@@ -160,7 +160,7 @@ jobs:
             set -e
             cd ${{ env.DEPLOY_PATH }}
             echo "Syncing configuration files from repo (commit ${{ github.sha }})..."
-            BASE="https://raw.githubusercontent.com/barazo-forum/barazo-deploy/${{ github.sha }}"
+            BASE="https://raw.githubusercontent.com/singi-labs/barazo-deploy/${{ github.sha }}"
             for f in docker-compose.yml docker-compose.staging.yml Caddyfile .env.example; do
               wget -qO "$f.tmp" "$BASE/$f"
               mv "$f.tmp" "$f"
@@ -364,13 +364,13 @@ jobs:
             if [ -n "$API_DIGEST" ] && [ "$API_DIGEST" != "no-previous-api" ]; then
               echo "Rolling back API to: $API_DIGEST"
               docker pull "$API_DIGEST"
-              docker tag "$API_DIGEST" ghcr.io/barazo-forum/barazo-api:edge
+              docker tag "$API_DIGEST" ghcr.io/singi-labs/barazo-api:edge
             fi
 
             if [ -n "$WEB_DIGEST" ] && [ "$WEB_DIGEST" != "no-previous-web" ]; then
               echo "Rolling back Web to: $WEB_DIGEST"
               docker pull "$WEB_DIGEST"
-              docker tag "$WEB_DIGEST" ghcr.io/barazo-forum/barazo-web:edge
+              docker tag "$WEB_DIGEST" ghcr.io/singi-labs/barazo-web:edge
             fi
 
             docker compose ${{ env.COMPOSE_FILES }} up -d
