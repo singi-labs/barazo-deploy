@@ -91,6 +91,12 @@ jobs:
           repository: singi-labs/barazo-lexicons
           path: barazo-lexicons
 
+      - name: Checkout barazo-plugins
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: singi-labs/barazo-plugins
+          path: barazo-plugins
+
       - name: Checkout barazo-api
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
