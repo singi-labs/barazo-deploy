@@ -1,0 +1,13 @@
+{
+  "$schema": "https://barazo.forum/schemas/plugins.json",
+  "plugins": [
+    {
+      "name": "@barazo/plugin-polls",
+      "version": "^1.0.0"
+    },
+    {
+      "name": "@barazo/plugin-spam-filter",
+      "version": "^1.0.0"
+    }
+  ]
+}

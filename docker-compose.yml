@@ -124,6 +124,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - plugins:/app/plugins
+      - ./plugins.json:/app/plugins.json:ro
+      - ./scripts/install-plugins.sh:/app/install-plugins.sh:ro
     networks:
       - frontend
       - backend
