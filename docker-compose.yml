@@ -187,6 +187,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data
       - caddyconfig:/config
+      - /var/www/docs.barazo.forum:/var/www/docs.barazo.forum:ro
     networks:
       - frontend
     depends_on:

@@ -12,6 +12,18 @@
 	admin off
 }
 
+# ---------------------------------------------------------------------------
+# Documentation site (static export served from /var/www/docs.barazo.forum/)
+# ---------------------------------------------------------------------------
+docs.barazo.forum {
+	header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+
+	root * /var/www/docs.barazo.forum
+	file_server
+
+	try_files {path} {path}index.html /404.html
+}
+
 {$COMMUNITY_DOMAIN} {
 	# HSTS -- enforce HTTPS for all future requests (2 years, preload-eligible)
 	header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
