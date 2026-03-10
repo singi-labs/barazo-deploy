@@ -19,3 +19,4 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+.worktrees/
