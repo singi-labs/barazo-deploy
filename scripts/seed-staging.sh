@@ -14,6 +14,8 @@
 #   - 10 sample topics across categories
 #   - 18 flat replies across topics
 #   - 15-level deep reply thread (Raspberry Pi self-hosting topic)
+#   - 1 forum-wide pinned topic + 1 category-pinned topic + 1 locked topic
+#   - Moderation data: queue items, action log, word filter
 #
 # Prerequisites:
 #   - Staging services must be running
@@ -143,77 +145,89 @@ echo "  Test users created."
 # AT Protocol style: uri is the primary key, references author by DID, category by slug
 echo "Creating sample topics..."
 run_psql <<'SQL'
-INSERT INTO topics (uri, rkey, author_did, title, content, category, community_did, cid, reply_count, created_at, last_activity_at)
+INSERT INTO topics (uri, rkey, author_did, title, content, category, community_did, cid, reply_count, created_at, last_activity_at, is_pinned, pinned_at, pinned_scope, is_locked)
 VALUES
+  -- Forum-wide pinned announcement
   ('at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed001',
    '3seed001', 'did:plc:staging-admin-001',
    'Welcome to Barazo Staging',
    'This is the staging instance of Barazo, used for testing and development. Feel free to create topics and test features.',
    'general', :community_did, 'bafyseed-t01', 3,
-   NOW() - INTERVAL '7 days', NOW() - INTERVAL '6 days 18 hours'),
+   NOW() - INTERVAL '7 days', NOW() - INTERVAL '6 days 18 hours',
+   true, NOW() - INTERVAL '7 days', 'forum', false),
 
+  -- Category-pinned in feedback + locked
   ('at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed002',
    '3seed002', 'did:plc:staging-admin-001',
    'How to report bugs',
    'Found a bug? Describe what you expected to happen, what actually happened, and steps to reproduce.',
    'feedback', :community_did, 'bafyseed-t02', 3,
-   NOW() - INTERVAL '6 days', NOW() - INTERVAL '5 days 18 hours'),
+   NOW() - INTERVAL '6 days', NOW() - INTERVAL '5 days 18 hours',
+   true, NOW() - INTERVAL '6 days', 'category', true),
 
   ('at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed003',
    '3seed003', 'did:plc:staging-moderator-001',
    'Getting started with the Barazo API',
    'The Barazo API is a RESTful API built with Fastify. You can explore the API documentation at /docs.',
    'development', :community_did, 'bafyseed-t03', 3,
-   NOW() - INTERVAL '5 days', NOW() - INTERVAL '4 days 14 hours'),
+   NOW() - INTERVAL '5 days', NOW() - INTERVAL '4 days 14 hours',
+   false, NULL, NULL, false),
 
   ('at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed004',
    '3seed004', 'did:plc:staging-moderator-001',
    'AT Protocol identity and portability',
    'One of the key features of building on AT Protocol is portable identity. Your DID stays with you across communities.',
    'atproto', :community_did, 'bafyseed-t04', 3,
-   NOW() - INTERVAL '4 days', NOW() - INTERVAL '3 days 14 hours'),
+   NOW() - INTERVAL '4 days', NOW() - INTERVAL '3 days 14 hours',
+   false, NULL, NULL, false),
 
   ('at://did:plc:staging-member-001/forum.barazo.topic.post/3seed005',
    '3seed005', 'did:plc:staging-member-001',
    'Favorite open source projects?',
    'What open source projects are you excited about right now? Share your favorites!',
    'off-topic', :community_did, 'bafyseed-t05', 3,
-   NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days 12 hours'),
+   NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days 12 hours',
+   false, NULL, NULL, false),
 
   ('at://did:plc:staging-member-001/forum.barazo.topic.post/3seed006',
    '3seed006', 'did:plc:staging-member-001',
    'Feature request: dark mode improvements',
    'The dark mode is great but could use some contrast improvements in the sidebar and category labels.',
    'feedback', :community_did, 'bafyseed-t06', 3,
-   NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day 12 hours'),
+   NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day 12 hours',
+   false, NULL, NULL, false),
 
   ('at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed007',
    '3seed007', 'did:plc:staging-admin-001',
    'Understanding the firehose and Tap',
    'Tap filters the AT Protocol firehose for forum.barazo.* records. Here is how it works and why it matters.',
    'development', :community_did, 'bafyseed-t07', 0,
-   NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days'),
+   NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days',
+   false, NULL, NULL, false),
 
   ('at://did:plc:staging-moderator-001/forum.barazo.topic.post/3seed008',
    '3seed008', 'did:plc:staging-moderator-001',
    'Cross-community reputation design',
    'How should reputation work across multiple Barazo communities? Let us discuss the design considerations.',
    'atproto', :community_did, 'bafyseed-t08', 0,
-   NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day'),
+   NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day',
+   false, NULL, NULL, false),
 
   ('at://did:plc:staging-member-001/forum.barazo.topic.post/3seed009',
    '3seed009', 'did:plc:staging-member-001',
    'Self-hosting Barazo on a Raspberry Pi',
    'Has anyone tried running Barazo on a Raspberry Pi? Curious about the performance on ARM hardware.',
    'general', :community_did, 'bafyseed-t09', 15,
-   NOW() - INTERVAL '12 hours', NOW() - INTERVAL '1 hour'),
+   NOW() - INTERVAL '12 hours', NOW() - INTERVAL '1 hour',
+   false, NULL, NULL, false),
 
   ('at://did:plc:staging-member-001/forum.barazo.topic.post/3seed010',
    '3seed010', 'did:plc:staging-member-001',
    'Weekend project ideas',
    'Looking for weekend project ideas that integrate with AT Protocol. What are you building?',
    'off-topic', :community_did, 'bafyseed-t10', 0,
-   NOW() - INTERVAL '6 hours', NOW() - INTERVAL '6 hours')
+   NOW() - INTERVAL '6 hours', NOW() - INTERVAL '6 hours',
+   false, NULL, NULL, false)
 ON CONFLICT DO NOTHING;
 SQL
 echo "  Sample topics created."
@@ -493,6 +507,71 @@ ON CONFLICT DO NOTHING;
 SQL
 echo "  Deep thread created (15 levels)."
 
+# --- Moderation Data ---
+echo "Creating moderation data..."
+run_psql <<'SQL'
+-- Word filter: add sample words to community settings
+UPDATE community_settings
+SET word_filter = '["spam", "scam", "free money", "buy now"]'::jsonb
+WHERE community_did = :community_did;
+
+-- Moderation action log: record the pin, lock, and a topic deletion
+INSERT INTO moderation_actions (action, target_uri, moderator_did, community_did, reason, created_at)
+VALUES
+  ('pin',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed001',
+   'did:plc:staging-admin-001', :community_did,
+   'Pinned forum-wide as welcome announcement',
+   NOW() - INTERVAL '7 days'),
+  ('pin',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed002',
+   'did:plc:staging-moderator-001', :community_did,
+   'Pinned in feedback category for visibility',
+   NOW() - INTERVAL '6 days'),
+  ('lock',
+   'at://did:plc:staging-admin-001/forum.barazo.topic.post/3seed002',
+   'did:plc:staging-moderator-001', :community_did,
+   'Locked to keep bug reporting instructions stable',
+   NOW() - INTERVAL '6 days'),
+  ('delete',
+   'at://did:plc:staging-member-003/forum.barazo.topic.post/3seedmod01',
+   'did:plc:staging-moderator-001', :community_did,
+   'Removed spam content',
+   NOW() - INTERVAL '2 days')
+ON CONFLICT DO NOTHING;
+
+-- Moderation queue: sample items in different states
+-- 1. Pending item (word filter match) - a reply that's waiting for review
+INSERT INTO moderation_queue (content_uri, content_type, author_did, community_did, queue_reason, matched_words, status, created_at)
+VALUES
+  ('at://did:plc:staging-member-003/forum.barazo.reply.post/3seedheld01',
+   'reply', 'did:plc:staging-member-003', :community_did,
+   'word_filter', '["free money"]',
+   'pending', NOW() - INTERVAL '3 hours')
+ON CONFLICT DO NOTHING;
+
+-- 2. Approved item (first post by new user)
+INSERT INTO moderation_queue (content_uri, content_type, author_did, community_did, queue_reason, status, reviewed_by, created_at, reviewed_at)
+VALUES
+  ('at://did:plc:staging-member-002/forum.barazo.topic.post/3seed005',
+   'topic', 'did:plc:staging-member-002', :community_did,
+   'first_post',
+   'approved', 'did:plc:staging-moderator-001',
+   NOW() - INTERVAL '4 days', NOW() - INTERVAL '4 days' + INTERVAL '15 minutes')
+ON CONFLICT DO NOTHING;
+
+-- 3. Rejected item (word filter match on a deleted topic)
+INSERT INTO moderation_queue (content_uri, content_type, author_did, community_did, queue_reason, matched_words, status, reviewed_by, created_at, reviewed_at)
+VALUES
+  ('at://did:plc:staging-member-003/forum.barazo.topic.post/3seedmod01',
+   'topic', 'did:plc:staging-member-003', :community_did,
+   'word_filter', '["scam", "buy now"]',
+   'rejected', 'did:plc:staging-moderator-001',
+   NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days' + INTERVAL '30 minutes')
+ON CONFLICT DO NOTHING;
+SQL
+echo "  Moderation data created (word filter, action log, queue items)."
+
 echo ""
 echo "Staging seed complete."
 echo ""
@@ -505,5 +584,8 @@ echo "  Member 3:  did:plc:staging-member-003    (staging-member3.bsky.social)"
 echo ""
 echo "Categories: 5 top-level + 7 subcategories (12 total)"
 echo "Topics: 10 | Flat replies: 18 | Deep thread: 15 replies (depth 1-15)"
+echo "Pinned: 'Welcome' (forum-wide) + 'How to report bugs' (category, locked)"
+echo "Moderation: 3 queue items (1 pending, 1 approved, 1 rejected) + 4 action log entries"
+echo "Word filter: spam, scam, free money, buy now"
 echo ""
 echo "Deep thread topic: 'Self-hosting Barazo on a Raspberry Pi'"
