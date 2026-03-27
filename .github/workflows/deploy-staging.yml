@@ -23,7 +23,7 @@ on:
 env:
   REGISTRY: ghcr.io
   DEPLOY_PATH: /opt/barazo
-  COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.staging.yml"
+  COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.staging.yml -f docker-compose.monitoring-proxy.yml"
 
 concurrency:
   group: staging-deploy

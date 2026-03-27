@@ -43,6 +43,29 @@ Run the smoke test to verify everything is working:
 docker stats --no-stream
 ```
 
+### Grafana Dashboard
+
+The monitoring stack (Prometheus + Grafana) provides real-time dashboards and alerting for all Singi Labs VPSes. Access it at `https://monitor.barazo.forum`.
+
+Available dashboards:
+- **Singi Labs -- VPS Overview**: All VPSes at a glance (CPU, RAM, disk, network, container metrics)
+- **Node Exporter Full**: Deep per-VPS host metrics
+- **Docker Container & Host**: Per-container resource usage
+
+The monitoring stack runs from a separate repo: [singi-labs/monitoring](https://github.com/singi-labs/monitoring). See its README for setup, maintenance, and adding new VPSes.
+
+### Prometheus Targets
+
+Check that all scrape targets are healthy:
+
+```bash
+# From the VPS
+curl -s http://localhost:9090/api/v1/targets | python3 -m json.tool | grep -E '"health"|"job"'
+
+# Reload config after editing prometheus.yml
+curl -X POST http://localhost:9090/-/reload
+```
+
 ## Backups
 
 ### Automated Backups (Recommended)

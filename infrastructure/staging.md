@@ -111,12 +111,35 @@ Use the `/staging-status` Claude Code skill for quick SSH-based triage:
 
 This checks container health, recent logs, disk/memory usage, missing env vars, and image versions.
 
+## Monitoring
+
+This VPS is the monitoring hub for all Singi Labs VPSes. It runs Prometheus, Grafana, node_exporter, and cAdvisor locally, and scrapes remote VPSes over WireGuard.
+
+| Component | Purpose |
+|-----------|---------|
+| Prometheus | Scrapes and stores metrics (30-day retention) |
+| Grafana | Dashboards and alerting at `monitor.barazo.forum` |
+| node_exporter | Host CPU, RAM, disk, network metrics |
+| cAdvisor | Per-container resource metrics |
+| WireGuard | VPN tunnel to remote VPSes (10.10.0.0/24) |
+| socat | Port forwards from localhost to WireGuard IPs for Prometheus |
+
+The monitoring stack runs from a separate repo: [singi-labs/monitoring](https://github.com/singi-labs/monitoring). See its README for full setup instructions, WireGuard configuration, and how to add new VPSes.
+
+### WireGuard Peers
+
+| VPS | WireGuard IP | Ports forwarded via socat |
+|-----|-------------|--------------------------|
+| Barazo staging (this VPS) | 10.10.0.1 | n/a (local Docker network) |
+| Sifa production | 10.10.0.2 | 9101->9100, 9102->8080 |
+| Barazo production (future) | 10.10.0.3 | 9103->9100, 9104->8080 |
+
 ## Compose Files
 
 Staging uses the overlay pattern:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.staging.yml -f docker-compose.monitoring-proxy.yml up -d
 ```
 
 The staging override (`docker-compose.staging.yml`) sets:
@@ -124,6 +147,8 @@ The staging override (`docker-compose.staging.yml`) sets:
 - `NODE_ENV: staging`
 - `LOG_LEVEL: debug`
 - Relaxed rate limits for testing
+
+The monitoring proxy overlay (`docker-compose.monitoring-proxy.yml`) connects Caddy to the monitoring stack's Docker network so it can reverse-proxy Grafana. The monitoring stack itself (Prometheus, Grafana, node_exporter, cAdvisor) runs from a separate repo at `/opt/monitoring`.
 
 ## Image Tags
 

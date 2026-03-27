@@ -62,3 +62,12 @@ docs.barazo.forum {
 		reverse_proxy barazo-web:3001
 	}
 }
+
+# Optional: Grafana monitoring dashboard proxy.
+# Only active when running a separate monitoring stack (e.g., singi-labs/monitoring)
+# with docker-compose.monitoring-proxy.yml. Without GRAFANA_DOMAIN set, this block
+# defaults to "monitor.localhost" and has no effect.
+{$GRAFANA_DOMAIN:monitor.localhost} {
+	header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+	reverse_proxy grafana:3050
+}

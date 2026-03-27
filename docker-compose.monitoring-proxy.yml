@@ -1,0 +1,30 @@
+# Barazo Monitoring Proxy -- Docker Compose Overlay (Optional)
+#
+# This overlay is NOT required for running Barazo. It is only needed if you
+# run a separate Prometheus/Grafana monitoring stack on the same VPS and want
+# Caddy to reverse-proxy to it. Self-hosters can safely ignore this file.
+#
+# Connects Caddy to the monitoring stack's Docker network so it can
+# reverse-proxy to Grafana. The monitoring stack (singi-labs/monitoring)
+# runs as a separate compose stack on the same VPS.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.staging.yml -f docker-compose.monitoring-proxy.yml up -d
+#
+# Requires:
+#   - The monitoring stack running (docker compose up -d in /opt/monitoring)
+#   - GRAFANA_DOMAIN set in .env
+#   - DNS A record for GRAFANA_DOMAIN pointing to this VPS
+#   - Grafana subdomain block in Caddyfile
+
+services:
+  caddy:
+    environment:
+      GRAFANA_DOMAIN: "${GRAFANA_DOMAIN}"
+    networks:
+      - monitoring-proxy
+
+networks:
+  monitoring-proxy:
+    external: true
+    name: monitoring-proxy

@@ -156,6 +156,12 @@ services:
 
 Never mount the Docker socket (`/var/run/docker.sock`) into any container. None of the Barazo services require it.
 
+**Exception: cAdvisor** -- The monitoring stack includes cAdvisor, which requires read-only access to `/var/run` (containing the Docker socket) and `/sys` to collect per-container metrics. This is a deliberate, documented exception:
+- cAdvisor is a widely-used, Google-maintained monitoring tool
+- The mount is read-only (`:ro`) -- cAdvisor does not write to the socket
+- cAdvisor runs with a read-only root filesystem
+- No other monitoring container has socket access
+
 ### Image Updates
 
 Keep base images updated. Dependabot is configured in the repo for automated image update PRs. On the server:
@@ -282,7 +288,7 @@ Backups must be encrypted before off-server storage. See [Backup & Restore](back
 Use this as a post-deployment verification:
 
 - [ ] SSH: root login disabled, password auth disabled
-- [ ] Firewall: only 22, 80, 443 (TCP), 443 (UDP) open
+- [ ] Firewall: only 22, 80, 443 (TCP), 443 (UDP), and 51820 (UDP, WireGuard) open
 - [ ] Unattended upgrades enabled
 - [ ] Resource limits set in `docker-compose.yml`
 - [ ] No `CHANGE_ME` in `.env`: `grep CHANGE_ME .env` returns nothing
