@@ -45,7 +45,7 @@ docker stats --no-stream
 
 ### Grafana Dashboard
 
-The monitoring stack (Prometheus + Grafana) provides real-time dashboards and alerting for all Singi Labs VPSes. Access it at `https://monitor.barazo.forum`.
+The monitoring stack (Prometheus + Grafana) provides real-time dashboards and alerting for all Singi Labs VPSes. Access it at `https://monitoring.singi.dev`.
 
 Available dashboards:
 - **Singi Labs -- VPS Overview**: All VPSes at a glance (CPU, RAM, disk, network, container metrics)

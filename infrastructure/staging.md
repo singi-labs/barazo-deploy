@@ -118,7 +118,7 @@ This VPS is the monitoring hub for all Singi Labs VPSes. It runs Prometheus, Gra
 | Component | Purpose |
 |-----------|---------|
 | Prometheus | Scrapes and stores metrics (30-day retention) |
-| Grafana | Dashboards and alerting at `monitor.barazo.forum` |
+| Grafana | Dashboards and alerting at `monitoring.singi.dev` |
 | node_exporter | Host CPU, RAM, disk, network metrics |
 | cAdvisor | Per-container resource metrics |
 | WireGuard | VPN tunnel to remote VPSes (10.10.0.0/24) |
