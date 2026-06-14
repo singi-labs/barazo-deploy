@@ -47,6 +47,24 @@ Everything you need to self-host a [Barazo](https://github.com/singi-labs) forum
 
 Production uses two-network segmentation: PostgreSQL and Valkey sit on the `backend` network only and are unreachable from Caddy or the frontend. Only ports 80 and 443 are exposed externally.
 
+### Custom Caddy vhosts
+
+Caddy imports any `*.caddy` file you drop into `./caddy.d/`, so you can serve extra
+sites on the same box (a status page, another app, a comments backend) without
+forking this template. The directory is mounted read-only at `/etc/caddy/conf.d`
+and its contents are gitignored, so your config survives `git pull` and is never
+committed here. Example `caddy.d/status.example.com.caddy`:
+
+```caddy
+status.example.com {
+	reverse_proxy my-status-app:8080
+}
+```
+
+Reverse-proxy targets must share Caddy's `frontend` network (attach your container
+to it as an external network). An empty `caddy.d/` directory is a no-op. After
+adding or changing a file, recreate Caddy: `docker compose up -d caddy`.
+
 ---
 
 ## Image Tags

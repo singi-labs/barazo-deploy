@@ -71,3 +71,13 @@ docs.barazo.forum {
 	header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
 	reverse_proxy grafana:3050
 }
+
+# ---------------------------------------------------------------------------
+# Custom site blocks (optional)
+# ---------------------------------------------------------------------------
+# Drop additional *.caddy files into ./caddy.d/ to serve extra vhosts (e.g. a
+# status page, a comments backend, another app on the same box) without forking
+# this template. The directory is mounted read-only at /etc/caddy/conf.d and is
+# gitignored, so your custom config survives `git pull` and never ships here.
+# An empty directory is a no-op.
+import /etc/caddy/conf.d/*.caddy
