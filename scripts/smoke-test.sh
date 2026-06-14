@@ -65,7 +65,7 @@ if [ -z "$REMOTE_URL" ]; then
   fi
 
   # Check Valkey connection
-  if docker compose -f "$COMPOSE_FILE" exec -T valkey valkey-cli ping 2>/dev/null | grep -q "PONG"; then
+  if docker compose -f "$COMPOSE_FILE" exec -T valkey valkey-cli -a "${VALKEY_PASSWORD:-}" ping 2>/dev/null | grep -q "PONG"; then
     pass "Valkey is responding"
   else
     fail "Valkey is not responding"
@@ -79,8 +79,11 @@ if [ -n "$REMOTE_URL" ]; then
   BASE_URL="$REMOTE_URL"
   echo "Remote deployment checks ($BASE_URL):"
 else
-  BASE_URL="http://localhost:3000"
-  echo "HTTP checks (via localhost):"
+  # App ports are not published to the host -- only Caddy (port 80) is.
+  # Route local HTTP checks through Caddy, which proxies /api/* -> barazo-api
+  # and everything else -> barazo-web.
+  BASE_URL="http://localhost"
+  echo "HTTP checks (via Caddy on localhost):"
 fi
 
 # API health
@@ -109,7 +112,7 @@ echo "Frontend checks:"
 if [ -n "$REMOTE_URL" ]; then
   HOMEPAGE=$(curl -s "$BASE_URL" 2>/dev/null || echo "")
 else
-  HOMEPAGE=$(curl -s "http://localhost:3001" 2>/dev/null || echo "")
+  HOMEPAGE=$(curl -s "$BASE_URL" 2>/dev/null || echo "")
 fi
 
 if echo "$HOMEPAGE" | grep -qi "barazo\|html"; then

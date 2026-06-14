@@ -177,6 +177,7 @@ jobs:
       DATABASE_URL: postgresql://barazo:ci_smoke_test@postgres:5432/barazo
       TAP_ADMIN_PASSWORD: ci_smoke_test
       SESSION_SECRET: ci_session_secret_not_real_extend_to_32
+      AI_ENCRYPTION_KEY: ci_ai_encryption_key_not_real_extend_to_32
       RELAY_URL: wss://bsky.network
       COMMUNITY_DID: did:plc:ci-smoke-test
       COMMUNITY_NAME: CI Smoke Test
