@@ -333,6 +333,10 @@ jobs:
             set -e
             cd ${{ env.DEPLOY_PATH }}
 
+            # Images are public on ghcr.io -- pull anonymously. Drop any stale
+            # registry credential so a leftover token can't cause "denied".
+            docker logout ghcr.io || true
+
             echo "Pulling latest images..."
             docker compose ${{ env.COMPOSE_FILES }} pull barazo-api barazo-web
 
