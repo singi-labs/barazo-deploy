@@ -185,6 +185,7 @@ services:
       - "443:443/udp"   # HTTP/3 (QUIC)
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy.d:/etc/caddy/conf.d:ro      # optional custom *.caddy vhosts (gitignored)
       - caddydata:/data
       - caddyconfig:/config
       - /var/www/docs.barazo.forum:/var/www/docs.barazo.forum:ro

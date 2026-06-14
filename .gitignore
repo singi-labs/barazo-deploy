@@ -20,3 +20,7 @@ Thumbs.db
 *.swp
 *.swo
 .worktrees/
+
+# Custom Caddy vhosts (machine-local, may contain private domains)
+caddy.d/*
+!caddy.d/.gitkeep
