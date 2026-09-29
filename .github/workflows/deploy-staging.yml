@@ -71,10 +71,10 @@ jobs:
       # Checkout all repos (public -- no PAT needed)
       # ------------------------------------------------------------------
       - name: Checkout barazo-deploy
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Checkout barazo-workspace
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: singi-labs/barazo-workspace
           path: _workspace
@@ -90,26 +90,26 @@ jobs:
           rm -rf _workspace
 
       - name: Checkout barazo-lexicons
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: singi-labs/barazo-lexicons
           path: barazo-lexicons
 
       - name: Checkout barazo-plugins
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: singi-labs/barazo-plugins
           path: barazo-plugins
 
       - name: Checkout barazo-api
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: singi-labs/barazo-api
           ref: ${{ steps.refs.outputs.api_ref }}
           path: barazo-api
 
       - name: Checkout barazo-web
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: singi-labs/barazo-web
           ref: ${{ steps.refs.outputs.web_ref }}
@@ -191,7 +191,7 @@ jobs:
 
     steps:
       - name: Checkout barazo-deploy
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Login to Container Registry
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
